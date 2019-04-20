@@ -181,6 +181,7 @@ func resetPlayers() {
 		players[p].speed = 0
 		players[p].position = 0
 		players[p].pressed = false
+		players[p].loop = 0
 	}
 }
 func setRamp(height uint8, start uint32, middle uint32, end uint32) {
