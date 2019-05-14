@@ -13,3 +13,7 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# editor specific config folders; not needed or used by devs with other editors
+.vscode/
+.idea/
