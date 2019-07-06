@@ -1,12 +1,12 @@
 package ledrace
 
 import (
+	"image/color"
 	"machine"
 	"time"
 
-	"image/color"
-
-	"github.com/tinygo-org/drivers/ws2812"
+	"tinygo.org/x/drivers/buzzer"
+	"tinygo.org/x/drivers/ws2812"
 )
 
 const ACCELERATION = 0.2
@@ -24,8 +24,8 @@ type Track struct {
 }
 
 type Player struct {
-	button   machine.GPIO
-	led      machine.GPIO
+	button   machine.Pin
+	led      machine.Pin
 	pressed  bool
 	speed    float32
 	position float32
@@ -35,6 +35,7 @@ type Player struct {
 
 var players [2]Player
 var track Track
+var bzr buzzer.Device
 
 var black = color.RGBA{0, 0, 0, 0}
 var red = color.RGBA{255, 0, 0, 255}
@@ -42,18 +43,27 @@ var green = color.RGBA{0, 255, 0, 255}
 var orange = color.RGBA{255, 255, 0, 255}
 
 func main() {
-	players[0].button = machine.GPIO{machine.A3}
-	players[0].button.Configure(machine.GPIOConfig{Mode: machine.GPIO_INPUT})
-	players[0].led = machine.GPIO{machine.A5}
-	players[0].led.Configure(machine.GPIOConfig{Mode: machine.GPIO_OUTPUT})
+	speaker := machine.PA30
+	speaker.Configure(machine.PinConfig{Mode: machine.PinOutput})
+	speaker.Set(true)
 
-	players[1].button = machine.GPIO{machine.A2}
-	players[1].button.Configure(machine.GPIOConfig{Mode: machine.GPIO_INPUT})
-	players[1].led = machine.GPIO{machine.A4}
-	players[1].led.Configure(machine.GPIOConfig{Mode: machine.GPIO_OUTPUT})
+	bzrPin := machine.A0
+	bzrPin.Configure(machine.PinConfig{Mode: machine.PinOutput})
 
-	neo := machine.GPIO{machine.A1}
-	neo.Configure(machine.GPIOConfig{Mode: machine.GPIO_OUTPUT})
+	bzr = buzzer.New(bzrPin)
+
+	players[0].button = machine.A3
+	players[0].button.Configure(machine.PinConfig{Mode: machine.PinInput})
+	players[0].led = machine.A5
+	players[0].led.Configure(machine.PinConfig{Mode: machine.PinOutput})
+
+	players[1].button = machine.A2
+	players[1].button.Configure(machine.PinConfig{Mode: machine.PinInput})
+	players[1].led = machine.A4
+	players[1].led.Configure(machine.PinConfig{Mode: machine.PinOutput})
+
+	neo := machine.A1
+	neo.Configure(machine.PinConfig{Mode: machine.PinOutput})
 	track.ws = ws2812.New(neo)
 
 	track.leds = make([]color.RGBA, TRACKLENGHT)
@@ -141,32 +151,57 @@ func startRace() {
 	}
 	track.ws.WriteColors(track.leds)
 	time.Sleep(1 * time.Second)
-	track.leds[12] = green
-	track.leds[11] = green
+	track.leds[12] = red
+	track.leds[11] = red
 	track.ws.WriteColors(track.leds)
-	time.Sleep(1 * time.Second)
+	bzr.Tone(buzzer.E4, buzzer.Quarter)
+	time.Sleep(400 * time.Millisecond)
 	track.leds[12] = black
 	track.leds[11] = black
 	track.leds[10] = orange
 	track.leds[9] = orange
 	track.ws.WriteColors(track.leds)
-	time.Sleep(1 * time.Second)
+	bzr.Tone(buzzer.E4, buzzer.Quarter)
+	time.Sleep(400 * time.Millisecond)
 	track.leds[10] = black
 	track.leds[9] = black
-	track.leds[8] = red
-	track.leds[7] = red
+	track.leds[8] = green
+	track.leds[7] = green
 	track.ws.WriteColors(track.leds)
-	time.Sleep(1 * time.Second)
+	bzr.Tone(buzzer.B4, buzzer.Quarter)
+	time.Sleep(400 * time.Millisecond)
 }
 
 func finishRace(winner uint8) {
 	resetPlayers()
-	for i := 0; i < 6; i++ {
+
+	for k := 0; k < 6; k++ {
 		for i := 0; i < TRACKLENGHT; i++ {
 			track.leds[i] = players[winner].color
 		}
 		track.ws.WriteColors(track.leds)
 		time.Sleep(300 * time.Millisecond)
+		if k == 1 {
+			// winning melody
+			bzr.Tone(buzzer.C4, 0.25)
+			time.Sleep(100*time.Millisecond)
+			bzr.Tone(buzzer.C4, 0.25)
+			time.Sleep(100*time.Millisecond)
+			bzr.Tone(buzzer.C4, 0.25)
+			time.Sleep(100*time.Millisecond)
+			bzr.Tone(buzzer.C4, 0.25)
+			time.Sleep(100*time.Millisecond)
+			bzr.Tone(buzzer.G3, 0.5)
+			time.Sleep(200*time.Millisecond)
+			bzr.Tone(buzzer.A3, 0.5)
+			time.Sleep(200*time.Millisecond)
+			bzr.Tone(buzzer.C4, 0.25)
+			time.Sleep(100*time.Millisecond)
+			bzr.Tone(buzzer.A3, 0.25)
+			time.Sleep(100*time.Millisecond)
+			bzr.Tone(buzzer.C4, 0.5)
+			time.Sleep(100*time.Millisecond)
+		}
 		for i := 0; i < TRACKLENGHT; i++ {
 			track.leds[i] = black
 		}
