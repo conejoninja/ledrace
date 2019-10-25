@@ -3,6 +3,9 @@
 [TinyGo](https://tinygo.org/) implementation of the [Open LED Race project](https://create.arduino.cc/projecthub/gbarbarov/open-led-race-a0331a) by [gbarbarov](https://github.com/gbarbarov/led-race).
 
 
+[![Video on Youtube](http://img.youtube.com/vi/bXJm5zj4HV4/0.jpg)](http://www.youtube.com/watch?v=bXJm5zj4HV4)
+
+_(Click on the image above for video on YouTube)_
 
 ## License
 
