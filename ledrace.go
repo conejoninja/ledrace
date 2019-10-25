@@ -86,15 +86,7 @@ func main() {
 
 	for {
 		for p := uint8(0); p < PLAYERS; p++ {
-			pressed := players[p].button.Get()
-			if players[p].pressed && !pressed {
-				players[p].pressed = false
-				players[p].speed += ACCELERATION
-				players[p].led.High()
-			} else if !players[p].pressed && pressed {
-				players[p].pressed = true
-				players[p].led.Low()
-			}
+			getPlayerInput(p)
 
 			gravity := track.gravity[uint16(players[p].position)%TRACKLENGHT]
 			if gravity < 127 {
@@ -128,6 +120,18 @@ func main() {
 		}
 
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func getPlayerInput(p uint8) {
+	pressed := players[p].button.Get()
+	if players[p].pressed && !pressed {
+		players[p].pressed = false
+		players[p].speed += ACCELERATION
+		players[p].led.High()
+	} else if !players[p].pressed && pressed {
+		players[p].pressed = true
+		players[p].led.Low()
 	}
 }
 
