@@ -10,7 +10,7 @@ import (
 )
 
 const ACCELERATION = 0.2
-const TRACKLENGHT = 240
+const TRACKLENGHT = 300
 const FRICTION = 0.015
 const GRAVITY = 0.003
 
