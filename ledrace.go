@@ -46,10 +46,6 @@ var yellow = color.RGBA{255, 255, 0, 255}
 var blue = color.RGBA{0, 0, 255, 255}
 
 func main() {
-	/*speaker := machine.PA30
-	speaker.Configure(machine.PinConfig{Mode: machine.PinOutput})
-	speaker.Set(true)*/
-
 	bzrPin := machine.A0
 	bzrPin.Configure(machine.PinConfig{Mode: machine.PinOutput})
 
