@@ -3,19 +3,19 @@ package telemetry
 import (
 	"image/color"
 	"machine"
-	"math/rand"
 	"time"
 
 	"tinygo.org/x/drivers/espat"
-	"tinygo.org/x/drivers/espat/mqtt"
+	"tinygo.org/x/drivers/net/mqtt"
 	"tinygo.org/x/drivers/ws2812"
 
 	config "../config/local"
 )
 
 type Telemetry struct {
-	c    mqtt.Client
-	leds *ws2812.Device
+	c       mqtt.Client
+	leds    *ws2812.Device
+	payload []byte
 }
 
 var black = color.RGBA{0, 0, 0, 0}
@@ -40,7 +40,6 @@ func New(leds *ws2812.Device) *Telemetry {
 	time.Sleep(3000 * time.Millisecond)
 
 	uart.Configure(machine.UARTConfig{TX: tx, RX: rx})
-	rand.Seed(time.Now().UnixNano())
 
 	// Init esp8266/esp32
 	adaptor = espat.New(uart)
@@ -71,7 +70,7 @@ func New(leds *ws2812.Device) *Telemetry {
 		return &t
 	}
 
-	opts := mqtt.NewClientOptions(adaptor)
+	opts := mqtt.NewClientOptions()
 	opts.AddBroker(config.MQTTServer()).SetClientID(config.DeviceName())
 	if config.MQTTUser() != "" {
 		opts.SetUsername(config.MQTTUser())
@@ -94,13 +93,27 @@ func New(leds *ws2812.Device) *Telemetry {
 		ledsColor[i] = green
 	}
 	t.leds.WriteColors(ledsColor)
+
+
+
 	return &t
 }
 
-func (t *Telemetry) Send(payload []byte) error {
-	token := t.c.Publish(config.TrackChannel(), 0, false, payload)
-	token.Wait()
-	return token.Error()
+func (t *Telemetry) sendLoop() {
+	for{
+		if t.payload!=nil {
+			token := t.c.Publish(config.TrackChannel(), 0, false, t.payload)
+			token.Wait()
+			if token.Error() == nil {
+				t.payload = nil
+			}
+		}
+		time.Sleep(1000*time.Millisecond)
+	}
+}
+
+func (t *Telemetry) Send(payload []byte) {
+	t.payload = payload
 }
 
 func (t *Telemetry) Disconnect() {

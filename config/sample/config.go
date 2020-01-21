@@ -1,6 +1,7 @@
 package sample
 
 const (
+	enabled      = true
 	ssid         = "yourSSIDhere"
 	pass         = "yourpasswordhere"
 	mqttServer   = "tcp://your-mqtt-server.tld:1883"
@@ -9,6 +10,10 @@ const (
 	deviceName   = "DemoLEDTrack"
 	trackChannel = "demo-track"
 )
+
+func TelemetryEnabled() bool {
+	return enabled
+}
 
 func SSID() string {
 	return ssid

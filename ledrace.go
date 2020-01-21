@@ -14,11 +14,11 @@ import (
 )
 
 const ACCELERATION = 0.2
-const TRACKLENGHT = 240
+const TRACKLENGHT = 300
 const FRICTION = 0.015
 const GRAVITY = 0.003
 
-const PLAYERS = 2
+const PLAYERS = 4
 const LAPS = 3
 
 type Track struct {
@@ -40,19 +40,22 @@ type Player struct {
 	ID       uint8      `json:"id"`
 	Speed    float32    `json:speed"`
 	Position float32    `json:position"`
-	Color    color.RGBA `json:"color"`
+	Color    color.RGBA `json:"Color"`
 	Loop     uint8      `json:loop"`
 }
 
-var players [2]Player
+var players [4]Player
 var track Track
 var bzr buzzer.Device
 var info *telemetry.Telemetry
+var idleTime time.Time
+var activity bool
 
 var black = color.RGBA{0, 0, 0, 0}
 var red = color.RGBA{255, 0, 0, 255}
 var green = color.RGBA{0, 255, 0, 255}
-var orange = color.RGBA{255, 255, 0, 255}
+var yellow = color.RGBA{255, 255, 0, 255}
+var blue = color.RGBA{0, 0, 255, 255}
 
 func main() {
 	bzrPin := machine.A0
@@ -60,17 +63,31 @@ func main() {
 
 	bzr = buzzer.New(bzrPin)
 
-	players[0].button = machine.A3
+	players[0].button = machine.A5
 	players[0].button.Configure(machine.PinConfig{Mode: machine.PinInput})
-	players[0].led = machine.A5
+	players[0].led = machine.A6
 	players[0].led.Configure(machine.PinConfig{Mode: machine.PinOutput})
+	players[0].Color = red
 
-	players[1].button = machine.A2
+	players[1].button = machine.A3
 	players[1].button.Configure(machine.PinConfig{Mode: machine.PinInput})
 	players[1].led = machine.A4
 	players[1].led.Configure(machine.PinConfig{Mode: machine.PinOutput})
+	players[1].Color = green
 
-	neo := machine.A1
+	players[2].button = machine.A1
+	players[2].button.Configure(machine.PinConfig{Mode: machine.PinInput})
+	players[2].led = machine.A2
+	players[2].led.Configure(machine.PinConfig{Mode: machine.PinOutput})
+	players[2].Color = yellow
+
+	players[3].button = machine.D12
+	players[3].button.Configure(machine.PinConfig{Mode: machine.PinInput})
+	players[3].led = machine.D11
+	players[3].led.Configure(machine.PinConfig{Mode: machine.PinOutput})
+	players[3].Color = blue
+
+	neo := machine.D2
 	neo.Configure(machine.PinConfig{Mode: machine.PinOutput})
 	track.ws = ws2812.New(neo)
 
@@ -89,29 +106,24 @@ func main() {
 		showGravity()
 	}
 
-	players[0].Color = red
-	players[1].Color = green
-
 	// until we get json.Marshall support
 	playersStr := ""
 	for p := 0; p < PLAYERS; p++ {
-		playersStr += `{"id":`+strconv.Itoa(p)+`,"color":"#` + hex.EncodeToString([]byte{players[p].Color.R, players[p].Color.G, players[p].Color.B, players[p].Color.A}) + `"}`
+		playersStr += `{"id":`+strconv.Itoa(p)+`,"Color":"#` + hex.EncodeToString([]byte{players[p].Color.R, players[p].Color.G, players[p].Color.B, players[p].Color.A}) + `"}`
 		if p < PLAYERS-1 {
 			playersStr += ","
 		}
 	}
 	println("going to send info mqtt")
-	err := info.Send([]byte(`{"type":"info","track_length":` + strconv.Itoa(TRACKLENGHT) + `,"num_players":` + strconv.Itoa(PLAYERS) + `,"laps":` + strconv.Itoa(LAPS) + `,"players":[` + playersStr + `]}`))
-	if err != nil {
-		println("ERROR", err.Error())
-	}
+	info.Send([]byte(`{"type":"info","track_length":` + strconv.Itoa(TRACKLENGHT) + `,"num_players":` + strconv.Itoa(PLAYERS) + `,"laps":` + strconv.Itoa(LAPS) + `,"players":[` + playersStr + `]}`))
 	println("Start race")
 
 	startRace()
 
 	for {
+		activity = false
 		for p := uint8(0); p < PLAYERS; p++ {
-			getPlayerInput(p)
+			activity = activity || getPlayerInput(p)
 
 			gravity := track.gravity[uint16(players[p].Position)%TRACKLENGHT]
 			if gravity < 127 {
@@ -154,20 +166,28 @@ func main() {
 			finishRace(winner)
 		}
 
+		if activity {
+			idleTime = time.Now()
+		} else if time.Since(idleTime) > 30*time.Second {
+			idleRace()
+		}
+
 		time.Sleep(10 * time.Millisecond)
 	}
 }
 
-func getPlayerInput(p uint8) {
+func getPlayerInput(p uint8) bool {
 	pressed := players[p].button.Get()
 	if players[p].pressed && !pressed {
 		players[p].pressed = false
 		players[p].Speed += ACCELERATION
 		players[p].led.High()
+		return true
 	} else if !players[p].pressed && pressed {
 		players[p].pressed = true
 		players[p].led.Low()
 	}
+	return false
 }
 
 func paintTrack() {
@@ -184,6 +204,7 @@ func paintTrack() {
 
 func startRace() {
 	resetPlayers()
+	idleTime = time.Now()
 	time.Sleep(2 * time.Second)
 	for i := 0; i < TRACKLENGHT; i++ {
 		track.leds[i] = black
@@ -197,8 +218,8 @@ func startRace() {
 	time.Sleep(400 * time.Millisecond)
 	track.leds[12] = black
 	track.leds[11] = black
-	track.leds[10] = orange
-	track.leds[9] = orange
+	track.leds[10] = yellow
+	track.leds[9] = yellow
 	track.ws.WriteColors(track.leds)
 	bzr.Tone(buzzer.E4, buzzer.Quarter)
 	time.Sleep(400 * time.Millisecond)
@@ -222,24 +243,34 @@ func finishRace(winner uint8) {
 		time.Sleep(300 * time.Millisecond)
 		if k == 1 {
 			// winning melody
+			players[winner].led.High()
 			bzr.Tone(buzzer.C4, 0.25)
 			time.Sleep(100 * time.Millisecond)
+			players[winner].led.Low()
 			bzr.Tone(buzzer.C4, 0.25)
 			time.Sleep(100 * time.Millisecond)
+			players[winner].led.Low()
 			bzr.Tone(buzzer.C4, 0.25)
 			time.Sleep(100 * time.Millisecond)
+			players[winner].led.High()
 			bzr.Tone(buzzer.C4, 0.25)
 			time.Sleep(100 * time.Millisecond)
+			players[winner].led.Low()
 			bzr.Tone(buzzer.G3, 0.5)
 			time.Sleep(200 * time.Millisecond)
+			players[winner].led.High()
 			bzr.Tone(buzzer.A3, 0.5)
 			time.Sleep(200 * time.Millisecond)
+			players[winner].led.Low()
 			bzr.Tone(buzzer.C4, 0.25)
 			time.Sleep(100 * time.Millisecond)
+			players[winner].led.High()
 			bzr.Tone(buzzer.A3, 0.25)
 			time.Sleep(100 * time.Millisecond)
+			players[winner].led.Low()
 			bzr.Tone(buzzer.C4, 0.5)
 			time.Sleep(100 * time.Millisecond)
+			players[winner].led.High()
 		}
 		for i := 0; i < TRACKLENGHT; i++ {
 			track.leds[i] = black
@@ -247,6 +278,7 @@ func finishRace(winner uint8) {
 		track.ws.WriteColors(track.leds)
 		time.Sleep(300 * time.Millisecond)
 	}
+	players[winner].led.Low()
 	startRace()
 }
 
@@ -256,8 +288,46 @@ func resetPlayers() {
 		players[p].Position = 0
 		players[p].pressed = false
 		players[p].Loop = 0
+		players[p].led.Low()
 	}
 }
+
+func idleRace() {
+	var k uint16
+	activity = false
+	for {
+		for i := 0; i < TRACKLENGHT; i++ {
+			track.leds[i] = getRainbowRGB(uint8((i*256)/TRACKLENGHT)+uint8(k))
+		}
+		track.ws.WriteColors(track.leds)
+		k = (k+1)%255
+
+		for p := uint8(0); p < PLAYERS; p++ {
+			if getPlayerInput(p) {
+				activity = true
+				break
+			}
+		}
+		if activity {
+			break
+		}
+
+		time.Sleep(16 * time.Millisecond)
+	}
+	startRace()
+}
+
+func getRainbowRGB(i uint8) color.RGBA {
+	if i < 85 {
+		return color.RGBA{i * 3, 255 - i*3, 0, 255}
+	} else if i < 170 {
+		i -= 85
+		return color.RGBA{255 - i*3, 0, i * 3, 255}
+	}
+	i -= 170
+	return color.RGBA{0, i * 3, 255 - i*3, 255}
+}
+
 func setRamp(height uint8, start uint32, middle uint32, end uint32) {
 	for i := uint32(0); i < (middle - start); i++ {
 		track.gravity[start+i] = uint8(127 - float32(i)*float32(height)/float32(middle-start))
