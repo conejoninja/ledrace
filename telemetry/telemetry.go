@@ -16,6 +16,7 @@ type Telemetry struct {
 	c       mqtt.Client
 	leds    *ws2812.Device
 	payload []byte
+	enabled bool
 }
 
 var black = color.RGBA{0, 0, 0, 0}
@@ -23,6 +24,7 @@ var red = color.RGBA{255, 0, 0, 255}
 var green = color.RGBA{0, 255, 0, 255}
 var orange = color.RGBA{255, 255, 0, 255}
 var white = color.RGBA{255, 255, 255, 255}
+var blue = color.RGBA{0, 0, 255, 255}
 
 var (
 	uart = machine.UART1
@@ -37,6 +39,8 @@ var (
 func New(leds *ws2812.Device) *Telemetry {
 	var t Telemetry
 	t.leds = leds
+	t.enabled = true
+	t.payload = []byte("boot sequence")
 	time.Sleep(3000 * time.Millisecond)
 
 	uart.Configure(machine.UARTConfig{TX: tx, RX: rx})
@@ -70,6 +74,34 @@ func New(leds *ws2812.Device) *Telemetry {
 		return &t
 	}
 
+	go t.sendLoop()
+	time.Sleep(4 * time.Second)
+
+	for i := 0; i < 10; i++ {
+		ledsColor[i] = green
+	}
+	t.leds.WriteColors(ledsColor)
+
+	return &t
+}
+
+func NewDisabled(leds *ws2812.Device) *Telemetry {
+	var t Telemetry
+	t.leds = leds
+	t.payload = []byte("boot sequence")
+	ledsColor := make([]color.RGBA, 10)
+	for i := 0; i < 10; i++ {
+		ledsColor[i] = blue
+	}
+	t.leds.WriteColors(ledsColor)
+	time.Sleep(3000 * time.Millisecond)
+
+	return &t
+}
+
+func (t *Telemetry) sendLoop() {
+	retries := uint8(0)
+	//ledsColor := make([]color.RGBA, 10)
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(config.MQTTServer()).SetClientID(config.DeviceName())
 	if config.MQTTUser() != "" {
@@ -80,35 +112,37 @@ func New(leds *ws2812.Device) *Telemetry {
 	}
 
 	println("Connecting to MQTT...")
-	t.c = mqtt.NewClient(opts)
-	if token := t.c.Connect(); token.Wait() && token.Error() != nil {
-		for i := 0; i < 10; i++ {
-			ledsColor[i] = red
-		}
-		t.leds.WriteColors(ledsColor)
-		println(token.Error().Error())
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		println(token.Error().Error(), "NOT CONNECTED TO MQTT :(")
 	}
+	var token mqtt.Token
 
-	for i := 0; i < 10; i++ {
-		ledsColor[i] = green
-	}
-	t.leds.WriteColors(ledsColor)
-
-
-
-	return &t
-}
-
-func (t *Telemetry) sendLoop() {
-	for{
-		if t.payload!=nil {
-			token := t.c.Publish(config.TrackChannel(), 0, false, t.payload)
-			token.Wait()
-			if token.Error() == nil {
-				t.payload = nil
+	for {
+		if t.enabled {
+			if retries == 0{
+				println("Publishing MQTT message...", string(t.payload))
+				token = client.Publish(config.TrackChannel(), 0, false, t.payload)
+				token.Wait()
 			}
+			if retries>0 || token.Error() != nil {
+				if retries < 10 {
+					token = client.Connect()
+					if token.Wait() && token.Error() != nil {
+						retries++
+						println("NOT CONNECTED TO MQTT (sendLoop)")
+					} else {
+						retries = 0
+					}
+				} else {
+					t.enabled = false
+				}
+			}
+			t.payload = []byte("none")
+			time.Sleep(500 * time.Millisecond)
+		} else {
+			time.Sleep(1 * time.Second)
 		}
-		time.Sleep(1000*time.Millisecond)
 	}
 }
 
@@ -116,8 +150,14 @@ func (t *Telemetry) Send(payload []byte) {
 	t.payload = payload
 }
 
-func (t *Telemetry) Disconnect() {
-	t.c.Disconnect(100)
+func (t *Telemetry) Enable() {
+	t.enabled = true
+	time.Sleep(1 * time.Second)
+}
+
+func (t *Telemetry) Disable() {
+	t.enabled = false
+	time.Sleep(1 * time.Second)
 }
 
 // connect to ESP8266/ESP32

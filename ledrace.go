@@ -97,7 +97,12 @@ func main() {
 		track.gravity[i] = 127
 	}
 
-	info = telemetry.New(&track.ws)
+	// press 2nd player to enable wifi
+	if !players[1].button.Get() {
+		info = telemetry.New(&track.ws)
+	} else {
+		info = telemetry.NewDisabled(&track.ws)
+	}
 
 	setRamp(12, 90, 100, 110)
 
@@ -109,7 +114,7 @@ func main() {
 	// until we get json.Marshall support
 	playersStr := ""
 	for p := 0; p < PLAYERS; p++ {
-		playersStr += `{"id":`+strconv.Itoa(p)+`,"Color":"#` + hex.EncodeToString([]byte{players[p].Color.R, players[p].Color.G, players[p].Color.B, players[p].Color.A}) + `"}`
+		playersStr += `{"id":` + strconv.Itoa(p) + `,"Color":"#` + hex.EncodeToString([]byte{players[p].Color.R, players[p].Color.G, players[p].Color.B, players[p].Color.A}) + `"}`
 		if p < PLAYERS-1 {
 			playersStr += ","
 		}
@@ -147,12 +152,14 @@ func main() {
 		// until we get json.Marshall support
 		playersStr = ""
 		for p := 0; p < PLAYERS; p++ {
-			playersStr += `{"id":`+strconv.Itoa(p)+`,"speed":` + strconv.FormatFloat(float64(players[p].Speed), 'f', 2, 32) + `,"position":` + strconv.FormatFloat(float64(players[p].Position), 'f', 2, 32) + `,"loop":` + strconv.Itoa(int(players[p].Loop)) + `}`
+
+			playersStr += `{"id":` + strconv.Itoa(p) + `,"speed":` + strconv.Itoa(int(10000*players[p].Speed)) + /*`,"position":` + strconv.FormatFloat(float64(players[p].Position), 'f', 2, 32) + `,"loop":` + strconv.Itoa(int(players[p].Loop)) + */ `}`
 			if p < PLAYERS-1 {
 				playersStr += ","
 			}
 		}
-		//go info.Send([]byte(`{"type":"status","players":[` + playersStr + `]}`))
+		info.Send([]byte(`{"type":"status","players":[` + playersStr + `]}`))
+		//info.Send([]byte("RACEing"))
 
 		maxPosition := players[0].Position
 		winner := uint8(0)
@@ -235,6 +242,7 @@ func startRace() {
 func finishRace(winner uint8) {
 	resetPlayers()
 
+	info.Disable()
 	for k := 0; k < 6; k++ {
 		for i := 0; i < TRACKLENGHT; i++ {
 			track.leds[i] = players[winner].Color
@@ -272,12 +280,15 @@ func finishRace(winner uint8) {
 			time.Sleep(100 * time.Millisecond)
 			players[winner].led.High()
 		}
+
 		for i := 0; i < TRACKLENGHT; i++ {
 			track.leds[i] = black
 		}
 		track.ws.WriteColors(track.leds)
 		time.Sleep(300 * time.Millisecond)
 	}
+	info.Enable()
+
 	players[winner].led.Low()
 	startRace()
 }
@@ -297,10 +308,10 @@ func idleRace() {
 	activity = false
 	for {
 		for i := 0; i < TRACKLENGHT; i++ {
-			track.leds[i] = getRainbowRGB(uint8((i*256)/TRACKLENGHT)+uint8(k))
+			track.leds[i] = getRainbowRGB(uint8((i*256)/TRACKLENGHT) + uint8(k))
 		}
 		track.ws.WriteColors(track.leds)
-		k = (k+1)%255
+		k = (k + 1) % 255
 
 		for p := uint8(0); p < PLAYERS; p++ {
 			if getPlayerInput(p) {
@@ -312,6 +323,7 @@ func idleRace() {
 			break
 		}
 
+		info.Send([]byte("IDLEing"))
 		time.Sleep(16 * time.Millisecond)
 	}
 	startRace()
