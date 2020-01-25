@@ -38,10 +38,10 @@ type Player struct {
 	led      machine.Pin
 	pressed  bool
 	ID       uint8      `json:"id"`
-	Speed    float32    `json:speed"`
-	Position float32    `json:position"`
+	Speed    float32    `json:"speed"`
+	Position float32    `json:"position"`
 	Color    color.RGBA `json:"Color"`
-	Loop     uint8      `json:loop"`
+	Loop     uint8      `json:"loop"`
 }
 
 var players [4]Player
@@ -149,18 +149,6 @@ func main() {
 
 		paintTrack()
 
-		// until we get json.Marshall support
-		playersStr = ""
-		for p := 0; p < PLAYERS; p++ {
-
-			playersStr += `{"id":` + strconv.Itoa(p) + `,"speed":` + strconv.Itoa(int(10000*players[p].Speed)) + /*`,"position":` + strconv.FormatFloat(float64(players[p].Position), 'f', 2, 32) + `,"loop":` + strconv.Itoa(int(players[p].Loop)) + */ `}`
-			if p < PLAYERS-1 {
-				playersStr += ","
-			}
-		}
-		info.Send([]byte(`{"type":"status","players":[` + playersStr + `]}`))
-		//info.Send([]byte("RACEing"))
-
 		maxPosition := players[0].Position
 		winner := uint8(0)
 		for p := uint8(1); p < PLAYERS; p++ {
@@ -169,6 +157,15 @@ func main() {
 				winner = p
 			}
 		}
+		// until we get json.Marshall support
+		playersStr = ""
+		for p := 0; p < PLAYERS; p++ {
+			playersStr += `{"id":` + strconv.Itoa(p) + `,"speed":` + strconv.Itoa(int(10000*players[p].Speed)) + `,"position":` + strconv.Itoa(int(players[p].Position)) + `,"loop":` + strconv.Itoa(int(players[p].Loop)) + `}`
+			if p < PLAYERS-1 {
+				playersStr += ","
+			}
+		}
+		info.Send([]byte(`{"type":"status","players":[` + playersStr + `]}`))
 		if maxPosition > LAPS*TRACKLENGHT {
 			finishRace(winner)
 		}
@@ -240,56 +237,67 @@ func startRace() {
 }
 
 func finishRace(winner uint8) {
-	resetPlayers()
+	if info.Enabled() {
+		for k := 0; k < 6; k++ {
+			for i := 0; i < TRACKLENGHT; i++ {
+				track.leds[i] = black
+			}
+			track.ws.WriteColors(track.leds)
+			time.Sleep(300 * time.Millisecond)
 
-	info.Disable()
-	for k := 0; k < 6; k++ {
-		for i := 0; i < TRACKLENGHT; i++ {
-			track.leds[i] = players[winner].Color
+			for i := 0; i < 50; i++ {
+				track.leds[50*k+i] = players[winner].Color
+			}
+			track.ws.WriteColors(track.leds)
+			time.Sleep(300 * time.Millisecond)
 		}
-		track.ws.WriteColors(track.leds)
-		time.Sleep(300 * time.Millisecond)
-		if k == 1 {
-			// winning melody
-			players[winner].led.High()
-			bzr.Tone(buzzer.C4, 0.25)
-			time.Sleep(100 * time.Millisecond)
-			players[winner].led.Low()
-			bzr.Tone(buzzer.C4, 0.25)
-			time.Sleep(100 * time.Millisecond)
-			players[winner].led.Low()
-			bzr.Tone(buzzer.C4, 0.25)
-			time.Sleep(100 * time.Millisecond)
-			players[winner].led.High()
-			bzr.Tone(buzzer.C4, 0.25)
-			time.Sleep(100 * time.Millisecond)
-			players[winner].led.Low()
-			bzr.Tone(buzzer.G3, 0.5)
-			time.Sleep(200 * time.Millisecond)
-			players[winner].led.High()
-			bzr.Tone(buzzer.A3, 0.5)
-			time.Sleep(200 * time.Millisecond)
-			players[winner].led.Low()
-			bzr.Tone(buzzer.C4, 0.25)
-			time.Sleep(100 * time.Millisecond)
-			players[winner].led.High()
-			bzr.Tone(buzzer.A3, 0.25)
-			time.Sleep(100 * time.Millisecond)
-			players[winner].led.Low()
-			bzr.Tone(buzzer.C4, 0.5)
-			time.Sleep(100 * time.Millisecond)
-			players[winner].led.High()
-		}
+	} else {
+		for k := 0; k < 6; k++ {
+			for i := 0; i < TRACKLENGHT; i++ {
+				track.leds[i] = players[winner].Color
+			}
+			track.ws.WriteColors(track.leds)
+			time.Sleep(300 * time.Millisecond)
+			if k == 1 {
+				// winning melody
+				players[winner].led.High()
+				bzr.Tone(buzzer.C4, 0.25)
+				time.Sleep(100 * time.Millisecond)
+				players[winner].led.Low()
+				bzr.Tone(buzzer.C4, 0.25)
+				time.Sleep(100 * time.Millisecond)
+				players[winner].led.Low()
+				bzr.Tone(buzzer.C4, 0.25)
+				time.Sleep(100 * time.Millisecond)
+				players[winner].led.High()
+				bzr.Tone(buzzer.C4, 0.25)
+				time.Sleep(100 * time.Millisecond)
+				players[winner].led.Low()
+				bzr.Tone(buzzer.G3, 0.5)
+				time.Sleep(200 * time.Millisecond)
+				players[winner].led.High()
+				bzr.Tone(buzzer.A3, 0.5)
+				time.Sleep(200 * time.Millisecond)
+				players[winner].led.Low()
+				bzr.Tone(buzzer.C4, 0.25)
+				time.Sleep(100 * time.Millisecond)
+				players[winner].led.High()
+				bzr.Tone(buzzer.A3, 0.25)
+				time.Sleep(100 * time.Millisecond)
+				players[winner].led.Low()
+				bzr.Tone(buzzer.C4, 0.5)
+				time.Sleep(100 * time.Millisecond)
+				players[winner].led.High()
+			}
 
-		for i := 0; i < TRACKLENGHT; i++ {
-			track.leds[i] = black
+			for i := 0; i < TRACKLENGHT; i++ {
+				track.leds[i] = black
+			}
+			track.ws.WriteColors(track.leds)
+			time.Sleep(300 * time.Millisecond)
 		}
-		track.ws.WriteColors(track.leds)
-		time.Sleep(300 * time.Millisecond)
 	}
-	info.Enable()
 
-	players[winner].led.Low()
 	startRace()
 }
 

@@ -99,6 +99,10 @@ func NewDisabled(leds *ws2812.Device) *Telemetry {
 	return &t
 }
 
+func (t *Telemetry) Enabled() bool {
+	return t.enabled
+}
+
 func (t *Telemetry) sendLoop() {
 	retries := uint8(0)
 	//ledsColor := make([]color.RGBA, 10)
@@ -120,12 +124,12 @@ func (t *Telemetry) sendLoop() {
 
 	for {
 		if t.enabled {
-			if retries == 0{
+			if retries == 0 {
 				println("Publishing MQTT message...", string(t.payload))
 				token = client.Publish(config.TrackChannel(), 0, false, t.payload)
 				token.Wait()
 			}
-			if retries>0 || token.Error() != nil {
+			if retries > 0 || token.Error() != nil {
 				if retries < 10 {
 					token = client.Connect()
 					if token.Wait() && token.Error() != nil {
@@ -139,7 +143,7 @@ func (t *Telemetry) sendLoop() {
 				}
 			}
 			t.payload = []byte("none")
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(800 * time.Millisecond)
 		} else {
 			time.Sleep(1 * time.Second)
 		}
