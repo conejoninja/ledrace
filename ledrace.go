@@ -1,8 +1,9 @@
-package ledrace
+package main
 
 import (
 	"image/color"
 	"machine"
+	"strconv"
 	"time"
 
 	"tinygo.org/x/drivers/buzzer"
@@ -85,6 +86,10 @@ func main() {
 		track.gravity[i] = 127
 	}
 
+	if !players[1].button.Get() {
+		InitTelemetry()
+	}
+
 	setRamp(12, 90, 100, 110)
 
 	// If at start, player 0 is pressed, enter configuration mode
@@ -120,13 +125,23 @@ func main() {
 
 		maxPosition := players[0].position
 		winner := uint8(0)
-		for p := uint8(1); p < PLAYERS; p++ {
+		playerStr := ""
+		for p := uint8(0); p < PLAYERS; p++ {
 			if players[p].position > maxPosition {
 				maxPosition = players[p].position
 				winner = p
 			}
+
+			playerStr += strconv.Itoa(int(1000*players[p].speed))+","+strconv.Itoa(int(players[p].position))+","+strconv.Itoa(int(players[p].loop))
+			if p!=PLAYERS-1 {
+				playerStr += "|"
+			}
 		}
+
+		telemetry.Send([]byte(playerStr))
+
 		if maxPosition > LAPS*TRACKLENGHT {
+			time.Sleep(1500*time.Millisecond)
 			finishRace(winner)
 		}
 
@@ -168,6 +183,10 @@ func paintTrack() {
 
 func startRace() {
 	resetPlayers()
+	telemetry.Enable()
+
+	//go telemetry.sendLoop()
+
 	idleTime = time.Now()
 	time.Sleep(2 * time.Second)
 	for i := 0; i < TRACKLENGHT; i++ {
@@ -198,6 +217,7 @@ func startRace() {
 
 func finishRace(winner uint8) {
 	resetPlayers()
+	telemetry.Disable()
 
 	for k := 0; k < 6; k++ {
 		for i := 0; i < TRACKLENGHT; i++ {
