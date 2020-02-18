@@ -1,24 +1,9 @@
-package local
+package sample
 
-const (
-	ssid         = "yourSSID"
-	pass         = "yourSSIDPassword"
-	serverIP     = "yourServerIP"
-	serverPort   = 1053
-)
+const ACCELERATION = 0.2
+const TRACKLENGTH = 300
+const FRICTION = 0.015
+const GRAVITY = 0.003
 
-func ServerIP() string {
-	return serverIP
-}
-
-func ServerpPort() int {
-	return serverPort
-}
-
-func SSID() string {
-	return ssid
-}
-
-func Password() string {
-	return pass
-}
+const PLAYERS = 4
+const LAPS = 3
