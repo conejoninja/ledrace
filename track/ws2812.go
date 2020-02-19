@@ -24,7 +24,7 @@ func NewWS2812(pin machine.Pin, info *info.Status) *WS2812 {
 		pin:  pin,
 		leds: make([]color.RGBA, info.TrackLength),
 		ws:   ws2812.New(pin),
-		info:info,
+		info: info,
 	}
 }
 
@@ -62,7 +62,6 @@ func (w *WS2812) Idle() {
 	}
 	w.ws.WriteColors(w.leds)
 	w.aux = (w.aux + 1) % 255
-
 }
 
 func (w *WS2812) DrawFinish(winner uint8) {
@@ -86,32 +85,6 @@ func (w *WS2812) DrawStart() {
 	}
 	w.ws.WriteColors(w.leds)
 	time.Sleep(400 * time.Millisecond)
-
-	/*for i := 0; i < g.Status.TrackLength; i++ {
-		track.leds[i] = black
-	}
-	track.ws.WriteColors(track.leds)
-	time.Sleep(1 * time.Second)
-	track.leds[12] = red
-	track.leds[11] = red
-	track.ws.WriteColors(track.leds)
-	bzr.Tone(buzzer.E4, buzzer.Quarter)
-	time.Sleep(400 * time.Millisecond)
-	track.leds[12] = black
-	track.leds[11] = black
-	track.leds[10] = yellow
-	track.leds[9] = yellow
-	track.ws.WriteColors(track.leds)
-	bzr.Tone(buzzer.E4, buzzer.Quarter)
-	time.Sleep(400 * time.Millisecond)
-	track.leds[10] = black
-	track.leds[9] = black
-	track.leds[8] = green
-	track.leds[7] = green
-	track.ws.WriteColors(track.leds)
-	bzr.Tone(buzzer.B4, buzzer.Quarter)
-	time.Sleep(400 * time.Millisecond)*/
-
 }
 
 func getRainbowRGB(i uint8) color.RGBA {
