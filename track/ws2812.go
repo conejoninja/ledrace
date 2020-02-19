@@ -5,7 +5,7 @@ import (
 	"machine"
 	"time"
 
-	"github.com/conejoninja/ledrace"
+	"github.com/conejoninja/ledrace/info"
 
 	"tinygo.org/x/drivers/ws2812"
 )
@@ -15,15 +15,16 @@ type WS2812 struct {
 	leds []color.RGBA
 	ws   ws2812.Device
 	aux  int
-	info *ledrace.Info
+	info *info.Status
 }
 
-func NewWS2812(pin machine.Pin, info ledrace.Info) *WS2812 {
+func NewWS2812(pin machine.Pin, info *info.Status) *WS2812 {
 	pin.Configure(machine.PinConfig{Mode: machine.PinOutput})
 	return &WS2812{
 		pin:  pin,
 		leds: make([]color.RGBA, info.TrackLength),
 		ws:   ws2812.New(pin),
+		info:info,
 	}
 }
 
@@ -86,8 +87,7 @@ func (w *WS2812) DrawStart() {
 	w.ws.WriteColors(w.leds)
 	time.Sleep(400 * time.Millisecond)
 
-
-	/*for i := 0; i < g.Info.TrackLength; i++ {
+	/*for i := 0; i < g.Status.TrackLength; i++ {
 		track.leds[i] = black
 	}
 	track.ws.WriteColors(track.leds)

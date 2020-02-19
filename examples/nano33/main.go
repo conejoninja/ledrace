@@ -3,24 +3,27 @@ package main
 import (
 	"image/color"
 	"machine"
-
-	"github.com/conejoninja/ledrace/sound"
-	"github.com/conejoninja/ledrace/track"
+	"time"
 
 	"github.com/conejoninja/ledrace"
 	config "github.com/conejoninja/ledrace/config/local"
+	"github.com/conejoninja/ledrace/info"
 	"github.com/conejoninja/ledrace/input"
+	"github.com/conejoninja/ledrace/sound"
+	"github.com/conejoninja/ledrace/track"
 )
 
 func main() {
 
-	players := make([]ledrace.Player, config.PLAYERS)
+	time.Sleep(4*time.Second)
+
+	players := make([]info.Player, config.PLAYERS)
 	players[0].Configure(input.NewButton(machine.A5, machine.A6), color.RGBA{255, 0, 0, 255})
 	players[1].Configure(input.NewButton(machine.A3, machine.A4), color.RGBA{0, 255, 0, 255})
 	players[2].Configure(input.NewButton(machine.A1, machine.A2), color.RGBA{255, 255, 0, 255})
 	players[3].Configure(input.NewButton(machine.D12, machine.D11), color.RGBA{0, 0, 255, 255})
 
-	info := ledrace.Info{
+	status := info.Status{
 		Players:     players,
 		NumPlayers:  config.PLAYERS,
 		TrackLength: config.TRACKLENGTH,
@@ -29,10 +32,9 @@ func main() {
 		//		Gravity:     makeTrackNoGravity,
 	}
 
-	tracker := track.NewWS2812(machine.D2, info)
-	sounder := sound.New(machine.A0)
-
-	game := ledrace.New(info, tracker, sounder)
+	tracker := track.NewWS2812(machine.D2, &status)
+	sounder := sound.NewBuzzer(machine.A0)
+	game := ledrace.New(status, tracker, sounder)
 	game.Configure()
 
 	for {

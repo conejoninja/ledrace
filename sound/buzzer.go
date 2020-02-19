@@ -25,6 +25,7 @@ func (b *Buzzer) PlayStartFX() {
 	b.bzr.Tone(buzzer.E4, buzzer.Quarter)
 	time.Sleep(400 * time.Millisecond)
 	b.bzr.Tone(buzzer.E4, buzzer.Quarter)
+	time.Sleep(400 * time.Millisecond)
 	b.bzr.Tone(buzzer.B4, buzzer.Quarter)
 	time.Sleep(400 * time.Millisecond)
 }

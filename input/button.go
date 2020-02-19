@@ -31,19 +31,6 @@ func (b *Button) Get() bool {
 	return false
 }
 
-func (b *Button) SpeedDelta() float32 {
-	pressed := b.pin.Get()
-	if b.pressed && !pressed {
-		b.pressed = false
-		b.led.High()
-		return 1
-	} else if !b.pressed && pressed {
-		b.pressed = true
-		b.led.Low()
-	}
-	return 0
-}
-
 func (b *Button) Reset() {
 	b.pressed = false
 	b.led.Low()
