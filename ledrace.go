@@ -3,13 +3,13 @@ package main
 import (
 	"image/color"
 	"machine"
-	"strconv"
 	"time"
 
 	"tinygo.org/x/drivers/buzzer"
 	"tinygo.org/x/drivers/ws2812"
 )
 
+// Define variables for our game
 const ACCELERATION = 0.2
 const TRACKLENGHT = 300
 const FRICTION = 0.015
@@ -18,12 +18,14 @@ const GRAVITY = 0.003
 const PLAYERS = 4
 const LAPS = 3
 
+// Define the track itself
 type Track struct {
 	gravity []uint8
 	leds    []color.RGBA
 	ws      ws2812.Device
 }
 
+// Player
 type Player struct {
 	button   machine.Pin
 	led      machine.Pin
@@ -47,14 +49,17 @@ var yellow = color.RGBA{255, 255, 0, 255}
 var blue = color.RGBA{0, 0, 255, 255}
 
 func main() {
+	// configure the hardware (depends on each board)
 	configureHardware()
 
+	// init for the track
 	track.leds = make([]color.RGBA, TRACKLENGHT)
 	track.gravity = make([]uint8, TRACKLENGHT)
 	for i := 0; i < TRACKLENGHT; i++ {
 		track.gravity[i] = 127
 	}
 
+	// create a "ramp"
 	setRamp(12, 90, 100, 110)
 
 	// If at start, player 0 is pressed, enter configuration mode
@@ -62,6 +67,7 @@ func main() {
 		showGravity()
 	}
 
+	// start the race (reset values)
 	startRace()
 
 	for {
@@ -69,6 +75,9 @@ func main() {
 		for p := uint8(0); p < PLAYERS; p++ {
 			activity = activity || getPlayerInput(p)
 
+			// accelerate or slow a player depending on the gravity
+			// it slows the player if going UP a RAMP
+			// it accelerates the player if going DOWN a RAMP
 			gravity := track.gravity[uint16(players[p].position)%TRACKLENGHT]
 			if gravity < 127 {
 				players[p].speed -= GRAVITY * float32(127-gravity)
@@ -77,37 +86,38 @@ func main() {
 				players[p].speed += GRAVITY * float32(gravity-127)
 			}
 
+			// slows a player due to friction, so if no clicking it will eventually stops
 			players[p].speed -= players[p].speed * FRICTION
+			// move the player according to its speed
 			players[p].position += players[p].speed
 
+			// if reached the end of the track, start again (assume a closed loop track)
 			if players[p].position > TRACKLENGHT*float32(players[p].loop) {
 				players[p].loop++
 			}
 
 		}
 
+		// "paint" the track's players on their positions
 		paintTrack()
 
 		maxPosition := players[0].position
 		winner := uint8(0)
-		playerStr := ""
+		// check for the player in first position
 		for p := uint8(0); p < PLAYERS; p++ {
 			if players[p].position > maxPosition {
 				maxPosition = players[p].position
 				winner = p
 			}
-
-			playerStr += strconv.Itoa(int(1000*players[p].speed)) + "," + strconv.Itoa(int(players[p].position)) + "," + strconv.Itoa(int(players[p].loop))
-			if p != PLAYERS-1 {
-				playerStr += "|"
-			}
 		}
 
+		// declare a winner
 		if maxPosition > LAPS*TRACKLENGHT {
 			time.Sleep(1500 * time.Millisecond)
 			finishRace(winner)
 		}
 
+		// if no activity in a while, enter demo mode
 		if activity {
 			idleTime = time.Now()
 		} else if time.Since(idleTime) > 30*time.Second {
@@ -118,6 +128,7 @@ func main() {
 	}
 }
 
+// getPlayerInput gets the player's input (if button is pressed or not)
 func getPlayerInput(p uint8) bool {
 	pressed := players[p].button.Get()
 	if players[p].pressed && !pressed {
@@ -132,6 +143,7 @@ func getPlayerInput(p uint8) bool {
 	return false
 }
 
+// paintTrack "paint" each player's position on the LED strip
 func paintTrack() {
 	for i := 0; i < TRACKLENGHT; i++ {
 		track.leds[i] = black
@@ -144,6 +156,7 @@ func paintTrack() {
 	track.ws.WriteColors(track.leds)
 }
 
+// startRace resets the variables and make a short melody to simulate the start race light
 func startRace() {
 	resetPlayers()
 
@@ -175,6 +188,7 @@ func startRace() {
 	time.Sleep(400 * time.Millisecond)
 }
 
+// finishRace makes a short melody and blink the LED strip in the winner's color
 func finishRace(winner uint8) {
 	resetPlayers()
 
@@ -225,6 +239,7 @@ func finishRace(winner uint8) {
 	startRace()
 }
 
+// resetPlayers resets the players' variables
 func resetPlayers() {
 	for p := uint8(0); p < PLAYERS; p++ {
 		players[p].speed = 0
@@ -235,6 +250,7 @@ func resetPlayers() {
 	}
 }
 
+// idleRace is the demo mode (rainbow colors)
 func idleRace() {
 	var k uint16
 	activity = false
@@ -260,6 +276,7 @@ func idleRace() {
 	startRace()
 }
 
+// getRainbowRGB returns the color from the rainbow circle
 func getRainbowRGB(i uint8) color.RGBA {
 	if i < 85 {
 		return color.RGBA{i * 3, 255 - i*3, 0, 255}
@@ -271,6 +288,7 @@ func getRainbowRGB(i uint8) color.RGBA {
 	return color.RGBA{0, i * 3, 255 - i*3, 255}
 }
 
+// setRamps modifies the track's gravity to create a ramp
 func setRamp(height uint8, start uint32, middle uint32, end uint32) {
 	for i := uint32(0); i < (middle - start); i++ {
 		track.gravity[start+i] = uint8(127 - float32(i)*float32(height)/float32(middle-start))
@@ -281,6 +299,7 @@ func setRamp(height uint8, start uint32, middle uint32, end uint32) {
 	}
 }
 
+// showGravity "paint" the ramp on the LED strip
 func showGravity() {
 	for i := 0; i < TRACKLENGHT; i++ {
 		grav := track.gravity[i]
