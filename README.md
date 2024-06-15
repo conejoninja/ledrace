@@ -15,6 +15,11 @@ By default, you could see the ramps & slopes if during boot, the red player butt
 _(Click on the image above for video on YouTube)_
 
 
+![gif of led race](ledrace-input2.gif)
+
+_([Video from Mauro Pintus](https://x.com/PintusMauro))_
+
+
 ## Flashing
 
 ![KITS](kits.jpg)
